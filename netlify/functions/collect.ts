@@ -9,4 +9,4 @@ export default async function handler(): Promise<Response> {
   }
 }
 
-export const config: Config = { schedule: "10 0,8,16 * * *" };
+export const config: Config = { schedule: "10 0 * * *" };

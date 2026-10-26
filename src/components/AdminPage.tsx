@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CloudDownload, Eye, EyeOff, KeyRound, LogIn, LogOut, Mail, Pencil, Plus, RefreshCcw, RotateCcw, Trash2, UserRoundCog } from "lucide-react";
+import { ArrowLeft, Check, CloudDownload, Eye, EyeOff, KeyRound, LogIn, LogOut, Mail, Pencil, Plus, RefreshCcw, RotateCcw, Save, SlidersHorizontal, Trash2, UserRoundCog } from "lucide-react";
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser, type CallbackResult, type User } from "@netlify/identity";
-import { createAdminUser, deleteAdminUser, fetchAdminUsers, fetchDashboard, runCollection, updateAdminUser, updateReservationExclusions } from "../api";
-import type { Reservation, TrackedUser } from "../types";
+import { createAdminUser, deleteAdminUser, fetchAdminUsers, fetchDashboard, runCollection, updateAdminUser, updateCourtSettings, updateReservationExclusions } from "../api";
+import type { CourtNumber, Reservation, TrackedUser } from "../types";
 import { monthKey } from "../utils";
 import { CalendarView } from "./CalendarView";
 
@@ -24,6 +24,8 @@ export function AdminPage() {
   const [identityUser, setIdentityUser] = useState<User | null>(null);
   const [users, setUsers] = useState<TrackedUser[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [activeCourts, setActiveCourts] = useState<CourtNumber[]>([1, 2, 3, 4]);
+  const [courtDraft, setCourtDraft] = useState<CourtNumber[]>([1, 2, 3, 4]);
   const [month, setMonth] = useState(monthKey(new Date()));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showExcluded, setShowExcluded] = useState(false);
@@ -50,6 +52,8 @@ export function AdminPage() {
       const [adminUsers, dashboard] = await Promise.all([fetchAdminUsers(), fetchDashboard()]);
       setUsers(adminUsers);
       setReservations(dashboard.reservations);
+      setActiveCourts(dashboard.activeCourts);
+      setCourtDraft(dashboard.activeCourts);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "관리 정보를 불러오지 못했습니다.");
     }
@@ -141,9 +145,36 @@ export function AdminPage() {
     try {
       const result = await runCollection();
       await loadAdminData();
-      setMessage(`수집 완료: ${result.collected}건 확인, 현재 예약 ${result.active}건`);
+      setMessage(`수집 완료: 신규 ${result.added}건, 변경 ${result.changed}건 · 현재 예약 ${result.active}건`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "수집 중 오류가 발생했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleCourt(court: CourtNumber) {
+    setCourtDraft((current) => current.includes(court)
+      ? current.filter((item) => item !== court)
+      : [...current, court].sort((a, b) => a - b));
+  }
+
+  async function saveCourts() {
+    if (courtDraft.length === 0) {
+      setMessage("대시보드에 표시할 코트를 하나 이상 선택해 주세요.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      const settings = await updateCourtSettings(courtDraft);
+      setActiveCourts(settings.activeCourts);
+      setCourtDraft(settings.activeCourts);
+      setSelectedIds(new Set());
+      await loadAdminData();
+      setMessage(`코트 설정을 저장했습니다. 다음 수집부터 ${settings.activeCourts.map((court) => `${court}번`).join(", ")} 코트만 확인합니다.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "코트 설정을 저장하지 못했습니다.");
     } finally {
       setBusy(false);
     }
@@ -370,6 +401,43 @@ export function AdminPage() {
         </section>
       </div>
 
+      <section className="panel court-settings-panel" aria-labelledby="court-settings-title">
+        <div>
+          <span className="settings-icon"><SlidersHorizontal size={21} /></span>
+          <div>
+            <p className="eyebrow">COURT SETTINGS</p>
+            <h2 id="court-settings-title">노출 및 수집 코트</h2>
+            <p>선택한 코트만 공개 대시보드에 표시하고 매일 자동 수집합니다. 기존 기록은 삭제하지 않아 다시 선택하면 복원됩니다.</p>
+          </div>
+        </div>
+        <div className="court-setting-actions">
+          <div className="court-setting-options" role="group" aria-label="수집할 코트 선택">
+            {([1, 2, 3, 4] as CourtNumber[]).map((court) => {
+              const checked = courtDraft.includes(court);
+              return (
+                <button
+                  key={court}
+                  className={checked ? "selected" : ""}
+                  type="button"
+                  aria-pressed={checked}
+                  onClick={() => toggleCourt(court)}
+                >
+                  <span>{checked && <Check size={14} />}</span>실외 {court}번
+                </button>
+              );
+            })}
+          </div>
+          <button
+            className="primary-button"
+            type="button"
+            disabled={busy || courtDraft.length === 0 || courtDraft.join(",") === activeCourts.join(",")}
+            onClick={() => void saveCourts()}
+          >
+            <Save size={17} /> 설정 저장
+          </button>
+        </div>
+      </section>
+
       <section className="reservation-admin-block" aria-labelledby="reservation-admin-title">
         <div className="panel reservation-toolbar">
           <div>
@@ -411,11 +479,12 @@ export function AdminPage() {
           onToggleSelection={toggleReservation}
           showExcluded={showExcluded}
           onCourtChange={() => setSelectedIds(new Set())}
+          courts={activeCourts}
         />
       </section>
 
       <section className="panel collect-panel">
-        <div><CloudDownload size={22} /><div><h2>예약 데이터 수집</h2><p>자동 수집은 매일 01:10, 09:10, 17:10에 실행됩니다.</p></div></div>
+        <div><CloudDownload size={22} /><div><h2>예약 데이터 수집</h2><p>자동 수집은 매일 오전 9시 10분에 실행되며 변경된 예약만 반영합니다.</p></div></div>
         <button className="secondary-button" type="button" disabled={busy} onClick={() => void collectNow()}><RefreshCcw className={busy ? "spin" : ""} size={17} /> 지금 수집</button>
       </section>
       {message && <p className="toast" role="status">{message}</p>}

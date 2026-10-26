@@ -37,4 +37,11 @@ describe("reservation exclusions", () => {
     expect(exclusions[reservation.id]).toBeUndefined();
     expect(applyReservationExclusions([{ ...reservation, excludedAt: "stale" }], exclusions)[0].excludedAt).toBeUndefined();
   });
+
+  it("keeps an exclusion when the same reservation is collected again", () => {
+    const changedAt = "2026-10-26T03:00:00.000Z";
+    const exclusions = setReservationExclusions({}, [reservation.id], true, changedAt);
+    const recollected = { ...reservation, lastSeenAt: "2026-10-27T00:00:00.000Z" };
+    expect(applyReservationExclusions([recollected], exclusions)[0].excludedAt).toBe(changedAt);
+  });
 });

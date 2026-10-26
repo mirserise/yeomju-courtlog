@@ -4,12 +4,13 @@ import { fetchDashboard } from "./api";
 import { AdminPage } from "./components/AdminPage";
 import { CalendarView } from "./components/CalendarView";
 import { SummaryView } from "./components/SummaryView";
-import type { DashboardData } from "./types";
+import type { CourtNumber, DashboardData } from "./types";
 import { addDays, isAuthCallbackHash, koreanDateTime, money, monthKey, toLocalISO } from "./utils";
 
 const emptyDashboard: DashboardData = {
   users: [],
   reservations: [],
+  activeCourts: [1, 2, 3, 4],
   lastCollectedAt: null,
   collectionError: null,
   sourceUrl: "https://www.gwangjusportsinfo.org/reservation/reservation_view/2/1?agree=1",
@@ -49,6 +50,7 @@ function Dashboard() {
   );
   const periodReservations = activeReservations.filter((reservation) => reservation.date >= startDate && reservation.date <= endDate);
   const periodFee = periodReservations.reduce((sum, reservation) => sum + reservation.fee, 0);
+  const courtLabel = formatCourtLabel(data.activeCourts);
 
   return (
     <div className="site-shell">
@@ -67,9 +69,9 @@ function Dashboard() {
       <main>
         <section className="hero">
           <div className="hero-copy">
-            <p className="eyebrow light">YEOMJU COURT 01—04</p>
+            <p className="eyebrow light">YEOMJU COURT {data.activeCourts.map((court) => String(court).padStart(2, "0")).join(" · ")}</p>
             <h1>저녁 코트의 기록을<br /><em>한눈에.</em></h1>
-            <p className="hero-description">염주테니스장 1~4코트의 17시, 19시, 21시 예약과 이용금액을 매일 세 번 정리합니다.</p>
+            <p className="hero-description">염주테니스장 {courtLabel}의 17시, 19시, 21시 예약과 이용금액을 매일 한 번 정리합니다.</p>
             <div className="hero-actions">
               <a className="primary-button lime" href="#calendar"><CalendarDays size={18} /> 예약 현황 보기</a>
               <a className="source-link" href={data.sourceUrl} target="_blank" rel="noreferrer">공식 예약 사이트 <ExternalLink size={15} /></a>
@@ -78,7 +80,7 @@ function Dashboard() {
           <div className="court-art" aria-hidden="true">
             <div className="court-lines"><span className="net" /></div>
             <div className="tennis-ball" />
-            <div className="court-label"><span>LIVE</span><b>4 COURTS</b><small>17 · 19 · 21</small></div>
+            <div className="court-label"><span>LIVE</span><b>{data.activeCourts.length} COURTS</b><small>17 · 19 · 21</small></div>
           </div>
         </section>
 
@@ -93,7 +95,7 @@ function Dashboard() {
         {data.collectionError && <div className="warning-banner" role="status">최근 자동 수집에 오류가 있었습니다. 마지막 정상 데이터를 표시합니다.</div>}
 
         <div id="calendar" className="anchor-offset" />
-        {loading ? <LoadingPanel /> : <CalendarView month={month} onMonthChange={setMonth} reservations={data.reservations} users={data.users} />}
+        {loading ? <LoadingPanel /> : <CalendarView month={month} onMonthChange={setMonth} reservations={data.reservations} users={data.users} courts={data.activeCourts} />}
 
         <div id="statement" className="anchor-offset" />
         {loading ? <LoadingPanel /> : (
@@ -110,11 +112,16 @@ function Dashboard() {
 
       <footer>
         <div className="brand compact"><span className="brand-mark"><span /></span><span><b>COURTLOG</b><small>YEOMJU TENNIS</small></span></div>
-        <p>광주체육시설 공개 예약정보를 8시간 간격으로 정리합니다.</p>
+        <p>광주체육시설 공개 예약정보를 매일 한 번 변경분 중심으로 정리합니다.</p>
         <a href="/admin"><LockKeyhole size={14} /> 사용자 관리</a>
       </footer>
     </div>
   );
+}
+
+function formatCourtLabel(courts: CourtNumber[]): string {
+  if (courts.length === 4) return "1~4코트";
+  return `${courts.map((court) => `${court}코트`).join(" · ")}`;
 }
 
 function LoadingPanel() {

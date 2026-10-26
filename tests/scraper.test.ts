@@ -36,4 +36,16 @@ describe("reservation scraper", () => {
     const merged = mergeSnapshot(initial, parseReservationPage(html, 1, DEFAULT_USERS), DEFAULT_USERS, "2026-10-26T08:00:00.000Z", "2026-10-26");
     expect(merged[0].excludedAt).toBe("2026-10-26T01:00:00.000Z");
   });
+
+  it("does not rewrite unchanged reservations on the next collection", () => {
+    const initial = mergeSnapshot([], parseReservationPage(html, 1, DEFAULT_USERS), DEFAULT_USERS, "2026-10-26T00:00:00.000Z", "2026-10-26");
+    const merged = mergeSnapshot(initial, parseReservationPage(html, 1, DEFAULT_USERS), DEFAULT_USERS, "2026-10-27T00:00:00.000Z", "2026-10-26", [1]);
+    expect(merged).toEqual(initial);
+  });
+
+  it("does not cancel reservations from courts excluded from collection", () => {
+    const initial = mergeSnapshot([], parseReservationPage(html, 1, DEFAULT_USERS), DEFAULT_USERS, "2026-10-26T00:00:00.000Z", "2026-10-26");
+    const merged = mergeSnapshot(initial, [], DEFAULT_USERS, "2026-10-27T00:00:00.000Z", "2026-10-27", [2, 3, 4]);
+    expect(merged[0].status).toBe("reserved");
+  });
 });

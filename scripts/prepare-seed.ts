@@ -2,10 +2,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { DEFAULT_USERS } from "../netlify/lib/defaults";
 import { mergeSnapshot, scrapeCurrentReservations } from "../netlify/lib/scraper";
+import { ALL_COURTS } from "../netlify/lib/settings";
 
 const outputDirectory = resolve(process.argv[2] ?? "/tmp/courtlog-seed");
 const collectedAt = new Date().toISOString();
-const { rows, today } = await scrapeCurrentReservations(DEFAULT_USERS);
+const { rows, today } = await scrapeCurrentReservations(DEFAULT_USERS, ALL_COURTS);
 const reservations = mergeSnapshot([], rows, DEFAULT_USERS, collectedAt, today);
 
 await mkdir(outputDirectory, { recursive: true });

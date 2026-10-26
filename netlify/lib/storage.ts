@@ -1,7 +1,8 @@
 import { getStore } from "@netlify/blobs";
-import type { Reservation, TrackedUser } from "../../src/types";
+import type { CourtSettings, Reservation, TrackedUser } from "../../src/types";
 import { DEFAULT_USERS } from "./defaults";
 import type { ReservationExclusions } from "./exclusions";
+import { DEFAULT_COURT_SETTINGS, normalizeActiveCourts } from "./settings";
 
 interface CollectionMeta {
   lastCollectedAt: string | null;
@@ -32,6 +33,18 @@ export async function getReservationExclusions(): Promise<ReservationExclusions>
 
 export async function saveReservationExclusions(exclusions: ReservationExclusions): Promise<void> {
   await store().setJSON("reservation-exclusions", exclusions);
+}
+
+export async function getCourtSettings(): Promise<CourtSettings> {
+  const saved = await store().get("court-settings", { type: "json" }) as CourtSettings | null;
+  const activeCourts = normalizeActiveCourts(saved?.activeCourts);
+  return activeCourts
+    ? { activeCourts, updatedAt: saved?.updatedAt ?? null }
+    : { ...DEFAULT_COURT_SETTINGS, activeCourts: [...DEFAULT_COURT_SETTINGS.activeCourts] };
+}
+
+export async function saveCourtSettings(settings: CourtSettings): Promise<void> {
+  await store().setJSON("court-settings", settings);
 }
 
 export async function getCollectionMeta(): Promise<CollectionMeta> {

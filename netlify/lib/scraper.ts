@@ -1,5 +1,5 @@
 import { load } from "cheerio";
-import type { Reservation, TrackedUser } from "../../src/types";
+import type { CourtNumber, Reservation, TrackedUser } from "../../src/types";
 import { calculateFee } from "./fees";
 
 const START_TIMES = new Set(["17:00", "19:00", "21:00"]);
@@ -7,12 +7,12 @@ const END_TIMES = { "17:00": "19:00", "19:00": "21:00", "21:00": "23:00" } as co
 
 export interface ScrapedReservation {
   date: string;
-  court: number;
+  court: CourtNumber;
   startTime: "17:00" | "19:00" | "21:00";
   maskedName: string;
 }
 
-export function parseReservationPage(html: string, court: number, users: TrackedUser[]): ScrapedReservation[] {
+export function parseReservationPage(html: string, court: CourtNumber, users: TrackedUser[]): ScrapedReservation[] {
   const $ = load(html);
   const activeAliases = new Set(users.filter((user) => user.active).map((user) => user.maskedName));
   const result: ScrapedReservation[] = [];
@@ -45,6 +45,7 @@ export function mergeSnapshot(
   users: TrackedUser[],
   collectedAt: string,
   today: string,
+  collectedCourts: CourtNumber[] = [1, 2, 3, 4],
 ): Reservation[] {
   const userByAlias = new Map(users.filter((user) => user.active).map((user) => [user.maskedName, user]));
   const seen = new Set<string>();
@@ -58,10 +59,13 @@ export function mergeSnapshot(
     seen.add(id);
     const existing = byId.get(id);
     if (existing) {
-      existing.status = "reserved";
-      existing.lastSeenAt = collectedAt;
-      existing.fee = calculateFee(scraped.date, scraped.startTime);
-      delete existing.cancelledAt;
+      const fee = calculateFee(scraped.date, scraped.startTime);
+      if (existing.status !== "reserved" || existing.fee !== fee) {
+        existing.status = "reserved";
+        existing.lastSeenAt = collectedAt;
+        existing.fee = fee;
+        delete existing.cancelledAt;
+      }
       continue;
     }
 
@@ -84,6 +88,7 @@ export function mergeSnapshot(
 
   for (const reservation of next) {
     if (reservation.status !== "reserved" || reservation.date < today) continue;
+    if (!collectedCourts.includes(reservation.court)) continue;
     if (!seen.has(reservation.id)) {
       reservation.status = "cancelled";
       reservation.cancelledAt = collectedAt;
@@ -111,11 +116,15 @@ function seoulDateParts(now = new Date()): { today: string; months: Array<{ year
   };
 }
 
-export async function scrapeCurrentReservations(users: TrackedUser[], now = new Date()): Promise<{ rows: ScrapedReservation[]; today: string }> {
+export async function scrapeCurrentReservations(
+  users: TrackedUser[],
+  activeCourts: CourtNumber[],
+  now = new Date(),
+): Promise<{ rows: ScrapedReservation[]; today: string }> {
   const { today, months } = seoulDateParts(now);
   const rows: ScrapedReservation[] = [];
   for (const { year, month } of months) {
-    for (const court of [1, 2, 3, 4]) {
+    for (const court of activeCourts) {
       const url = `https://www.gwangjusportsinfo.org/reservation/reservation_view/2/${court}?year=${year}&month=${month}&agree=1`;
       let response = await fetchReservationPage(url);
       if (response.status >= 500) {

@@ -1,4 +1,4 @@
-import type { DashboardData, Reservation, TrackedUser } from "./types";
+import type { CourtNumber, CourtSettings, DashboardData, Reservation, TrackedUser } from "./types";
 
 export async function fetchDashboard(): Promise<DashboardData> {
   const response = await fetch("/api/dashboard", { cache: "no-store" });
@@ -50,10 +50,21 @@ export async function deleteAdminUser(id: string): Promise<TrackedUser[]> {
   return response.json();
 }
 
-export async function runCollection(): Promise<{ collected: number; active: number }> {
+export async function runCollection(): Promise<{ collected: number; active: number; added: number; changed: number }> {
   const response = await fetch("/api/admin/collect", {
     method: "POST",
     credentials: "same-origin",
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function updateCourtSettings(activeCourts: CourtNumber[]): Promise<CourtSettings> {
+  const response = await fetch("/api/admin/settings", {
+    method: "PUT",
+    headers: jsonHeaders,
+    credentials: "same-origin",
+    body: JSON.stringify({ activeCourts }),
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();

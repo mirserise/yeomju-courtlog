@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Circle } from "lucide-react";
-import type { Reservation, TrackedUser } from "../types";
+import type { CourtNumber, Reservation, TrackedUser } from "../types";
 import { getCalendarDays, parseLocalDate, shiftMonth } from "../utils";
 
 interface CalendarViewProps {
@@ -13,10 +13,11 @@ interface CalendarViewProps {
   onToggleSelection?: (id: string) => void;
   showExcluded?: boolean;
   onCourtChange?: (court: number | "all") => void;
+  courts?: CourtNumber[];
 }
 
 const userColors = ["mint", "sky", "sun"];
-const courts = [1, 2, 3, 4] as const;
+const allCourts: CourtNumber[] = [1, 2, 3, 4];
 const emptySelectedIds = new Set<string>();
 
 export function CalendarView({
@@ -29,6 +30,7 @@ export function CalendarView({
   onToggleSelection,
   showExcluded = false,
   onCourtChange,
+  courts = allCourts,
 }: CalendarViewProps) {
   const [selectedCourt, setSelectedCourt] = useState<number | "all">("all");
   const days = getCalendarDays(month);
@@ -42,6 +44,13 @@ export function CalendarView({
   const active = selectedCourt === "all"
     ? monthlyReservations
     : monthlyReservations.filter((reservation) => reservation.court === selectedCourt);
+
+  useEffect(() => {
+    if (selectedCourt !== "all" && !courts.includes(selectedCourt as CourtNumber)) {
+      setSelectedCourt("all");
+      onCourtChange?.("all");
+    }
+  }, [courts, onCourtChange, selectedCourt]);
 
   function selectCourt(court: number | "all") {
     setSelectedCourt(court);

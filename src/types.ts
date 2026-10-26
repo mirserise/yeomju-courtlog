@@ -1,4 +1,10 @@
 export type ReservationStatus = "reserved" | "cancelled";
+export type CourtNumber = 1 | 2 | 3 | 4;
+
+export interface CourtSettings {
+  activeCourts: CourtNumber[];
+  updatedAt: string | null;
+}
 
 export interface TrackedUser {
   id: string;
@@ -12,7 +18,7 @@ export interface TrackedUser {
 export interface Reservation {
   id: string;
   date: string;
-  court: number;
+  court: CourtNumber;
   startTime: "17:00" | "19:00" | "21:00";
   endTime: "19:00" | "21:00" | "23:00";
   maskedName: string;
@@ -28,6 +34,7 @@ export interface Reservation {
 export interface DashboardData {
   users: TrackedUser[];
   reservations: Reservation[];
+  activeCourts: CourtNumber[];
   lastCollectedAt: string | null;
   collectionError: string | null;
   sourceUrl: string;
