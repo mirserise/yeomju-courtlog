@@ -5,7 +5,7 @@ import { AdminPage } from "./components/AdminPage";
 import { CalendarView } from "./components/CalendarView";
 import { SummaryView } from "./components/SummaryView";
 import type { DashboardData } from "./types";
-import { addDays, koreanDateTime, money, monthKey, toLocalISO } from "./utils";
+import { addDays, isAuthCallbackHash, koreanDateTime, money, monthKey, toLocalISO } from "./utils";
 
 const emptyDashboard: DashboardData = {
   users: [],
@@ -16,7 +16,7 @@ const emptyDashboard: DashboardData = {
 };
 
 export default function App() {
-  if (window.location.pathname.startsWith("/admin")) return <AdminPage />;
+  if (window.location.pathname.startsWith("/admin") || isAuthCallbackHash(window.location.hash)) return <AdminPage />;
   return <Dashboard />;
 }
 

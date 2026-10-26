@@ -40,6 +40,10 @@ export function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+export function isAuthCallbackHash(hash: string): boolean {
+  return /^#(?:confirmation_token|recovery_token|invite_token|email_change_token|access_token)=/.test(hash);
+}
+
 export function shiftMonth(key: string, amount: number): string {
   const [year, month] = key.split("-").map(Number);
   const date = new Date(year, month - 1 + amount, 1);

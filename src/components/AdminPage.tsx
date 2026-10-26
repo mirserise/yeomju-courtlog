@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CloudDownload, Eye, EyeOff, LogIn, LogOut, Pencil, Plus, RefreshCcw, RotateCcw, Trash2, UserRoundCog } from "lucide-react";
-import { getUser, handleAuthCallback, login, logout, onAuthChange, type User } from "@netlify/identity";
+import { ArrowLeft, CloudDownload, Eye, EyeOff, KeyRound, LogIn, LogOut, Mail, Pencil, Plus, RefreshCcw, RotateCcw, Trash2, UserRoundCog } from "lucide-react";
+import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser, type CallbackResult, type User } from "@netlify/identity";
 import { createAdminUser, deleteAdminUser, fetchAdminUsers, fetchDashboard, runCollection, updateAdminUser, updateReservationExclusions } from "../api";
 import type { Reservation, TrackedUser } from "../types";
 import { monthKey } from "../utils";
@@ -12,6 +12,13 @@ interface DraftUser {
 }
 
 const emptyDraft: DraftUser = { name: "", maskedName: "" };
+type AuthMode = "login" | "request-recovery" | "recovery" | "invite";
+let authCallbackPromise: Promise<CallbackResult | null> | null = null;
+
+function handleAuthCallbackOnce(): Promise<CallbackResult | null> {
+  authCallbackPromise ??= handleAuthCallback();
+  return authCallbackPromise;
+}
 
 export function AdminPage() {
   const [identityUser, setIdentityUser] = useState<User | null>(null);
@@ -26,6 +33,10 @@ export function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmedPassword, setConfirmedPassword] = useState("");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [inviteToken, setInviteToken] = useState("");
   const [authReady, setAuthReady] = useState(false);
   const reservationById = useMemo(
     () => new Map(reservations.map((reservation) => [reservation.id, reservation])),
@@ -48,11 +59,23 @@ export function AdminPage() {
     let active = true;
     void (async () => {
       try {
-        await handleAuthCallback();
+        const result = await handleAuthCallbackOnce();
+        if (!active) return;
+        if (result) window.history.replaceState(null, "", "/admin");
+        if (result?.type === "recovery") {
+          setIdentityUser(result.user);
+          setAuthMode("recovery");
+          return;
+        }
+        if (result?.type === "invite" && result.token) {
+          setInviteToken(result.token);
+          setAuthMode("invite");
+          return;
+        }
         const user = await getUser();
         if (active) setIdentityUser(user);
       } catch (error) {
-        if (active) setMessage(error instanceof Error ? error.message : "로그인 상태를 확인하지 못했습니다.");
+        if (active) setMessage(error instanceof Error ? error.message : "인증 링크를 확인하지 못했습니다. 새 링크를 요청해 주세요.");
       } finally {
         if (active) setAuthReady(true);
       }
@@ -142,6 +165,65 @@ export function AdminPage() {
     }
   }
 
+  async function sendRecoveryEmail(event: React.FormEvent) {
+    event.preventDefault();
+    if (!email.trim()) {
+      setMessage("관리자 이메일을 입력해 주세요.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      await requestPasswordRecovery(email.trim());
+      setMessage("비밀번호 재설정 메일을 보냈습니다. 메일함에서 새 링크를 확인해 주세요.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "재설정 메일을 보내지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveNewPassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (newPassword.length < 8) {
+      setMessage("새 비밀번호는 8자 이상으로 입력해 주세요.");
+      return;
+    }
+    if (newPassword !== confirmedPassword) {
+      setMessage("새 비밀번호가 서로 일치하지 않습니다.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+    try {
+      const user = authMode === "invite"
+        ? await acceptInvite(inviteToken, newPassword)
+        : await updateUser({ password: newPassword });
+      setIdentityUser(user);
+      setAuthMode("login");
+      setInviteToken("");
+      setNewPassword("");
+      setConfirmedPassword("");
+      setMessage(authMode === "invite" ? "관리자 계정이 생성되었습니다." : "새 비밀번호가 저장되었습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "비밀번호를 저장하지 못했습니다. 새 링크를 요청해 주세요.");
+    } finally {
+      setBusy(false);
+      setAuthReady(true);
+    }
+  }
+
+  async function cancelPasswordFlow() {
+    if (identityUser) await logout();
+    setIdentityUser(null);
+    setAuthMode("login");
+    setInviteToken("");
+    setNewPassword("");
+    setConfirmedPassword("");
+    setMessage("");
+  }
+
   async function signOut() {
     setBusy(true);
     try {
@@ -190,6 +272,29 @@ export function AdminPage() {
     }
   }
 
+  if (authMode === "recovery" || authMode === "invite") {
+    return (
+      <main className="admin-shell login-shell">
+        <a className="back-link" href="/"><ArrowLeft size={17} /> 대시보드로 돌아가기</a>
+        <section className="login-card">
+          <div className="admin-mark"><KeyRound size={28} /></div>
+          <p className="eyebrow">SECURE ACCOUNT</p>
+          <h1>{authMode === "invite" ? "관리자 비밀번호 설정" : "새 비밀번호 설정"}</h1>
+          <p>{authMode === "invite" ? "초대된 관리자 계정에서 사용할 비밀번호를 만들어 주세요." : "앞으로 관리자 로그인에 사용할 새 비밀번호를 입력해 주세요."}</p>
+          <form className="login-form" onSubmit={saveNewPassword}>
+            <label>새 비밀번호<input type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+            <label>새 비밀번호 확인<input type="password" autoComplete="new-password" minLength={8} required value={confirmedPassword} onChange={(event) => setConfirmedPassword(event.target.value)} /></label>
+            <button className="primary-button" type="submit" disabled={busy || !authReady}>
+              {busy ? <RefreshCcw className="spin" size={18} /> : <KeyRound size={18} />} 비밀번호 저장
+            </button>
+            <button className="text-button auth-text-button" type="button" disabled={busy} onClick={() => void cancelPasswordFlow()}>로그인으로 돌아가기</button>
+          </form>
+          {message && <p className="login-error" role="alert">{message}</p>}
+        </section>
+      </main>
+    );
+  }
+
   if (!identityUser) {
     return (
       <main className="admin-shell login-shell">
@@ -198,14 +303,25 @@ export function AdminPage() {
           <div className="admin-mark"><UserRoundCog size={28} /></div>
           <p className="eyebrow">PRIVATE ADMIN</p>
           <h1>사용자 관리</h1>
-          <p>예약자 이름 연결과 데이터 수집은 초대된 관리자만 변경할 수 있습니다.</p>
-          <form className="login-form" onSubmit={signIn}>
-            <label>이메일<input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            <label>비밀번호<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-            <button className="primary-button" type="submit" disabled={busy || !authReady}>
-              {busy ? <RefreshCcw className="spin" size={18} /> : <LogIn size={18} />} 관리자 로그인
-            </button>
-          </form>
+          <p>{authMode === "request-recovery" ? "가입된 관리자 이메일로 비밀번호 재설정 링크를 보내드립니다." : "예약자 이름 연결과 데이터 수집은 초대된 관리자만 변경할 수 있습니다."}</p>
+          {authMode === "request-recovery" ? (
+            <form className="login-form" onSubmit={sendRecoveryEmail}>
+              <label>관리자 이메일<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+              <button className="primary-button" type="submit" disabled={busy || !authReady}>
+                {busy ? <RefreshCcw className="spin" size={18} /> : <Mail size={18} />} 재설정 메일 보내기
+              </button>
+              <button className="text-button auth-text-button" type="button" disabled={busy} onClick={() => { setAuthMode("login"); setMessage(""); }}>로그인으로 돌아가기</button>
+            </form>
+          ) : (
+            <form className="login-form" onSubmit={signIn}>
+              <label>이메일<input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+              <label>비밀번호<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+              <button className="primary-button" type="submit" disabled={busy || !authReady}>
+                {busy ? <RefreshCcw className="spin" size={18} /> : <LogIn size={18} />} 관리자 로그인
+              </button>
+              <button className="text-button auth-text-button" type="button" disabled={busy} onClick={() => { setAuthMode("request-recovery"); setMessage(""); }}>비밀번호를 잊으셨나요?</button>
+            </form>
+          )}
           {message && <p className="login-error" role="alert">{message}</p>}
         </section>
       </main>
