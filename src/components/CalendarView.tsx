@@ -7,22 +7,40 @@ interface CalendarViewProps {
   onMonthChange: (month: string) => void;
   reservations: Reservation[];
   users: TrackedUser[];
+  selectable?: boolean;
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelection?: (id: string) => void;
+  showExcluded?: boolean;
 }
 
 const userColors = ["mint", "sky", "sun"];
+const emptySelectedIds = new Set<string>();
 
-export function CalendarView({ month, onMonthChange, reservations, users }: CalendarViewProps) {
+export function CalendarView({
+  month,
+  onMonthChange,
+  reservations,
+  users,
+  selectable = false,
+  selectedIds = emptySelectedIds,
+  onToggleSelection,
+  showExcluded = false,
+}: CalendarViewProps) {
   const days = getCalendarDays(month);
   const [year, monthNumber] = month.split("-").map(Number);
   const userMap = new Map(users.map((user, index) => [user.id, { ...user, color: userColors[index % userColors.length] }]));
-  const active = reservations.filter((reservation) => reservation.status === "reserved" && reservation.date.startsWith(month));
+  const active = reservations.filter((reservation) => (
+    reservation.status === "reserved"
+    && reservation.date.startsWith(month)
+    && (showExcluded || !reservation.excludedAt)
+  ));
 
   return (
     <section className="panel calendar-panel" aria-labelledby="calendar-title">
       <div className="section-heading calendar-heading">
         <div>
           <p className="eyebrow">MONTHLY COURT VIEW</p>
-          <h2 id="calendar-title">예약 캘린더</h2>
+          <h2 id="calendar-title">{selectable ? "예약 선택 관리" : "예약 캘린더"}</h2>
         </div>
         <div className="month-nav" aria-label="달 이동">
           <button type="button" className="icon-button" onClick={() => onMonthChange(shiftMonth(month, -1))} aria-label="이전 달">
@@ -58,13 +76,29 @@ export function CalendarView({ month, onMonthChange, reservations, users }: Cale
                 <div className="day-reservations">
                   {dayReservations.map((reservation) => {
                     const user = userMap.get(reservation.userId);
-                    return (
-                      <div className={`reservation-chip ${user?.color ?? 'mint'}`} key={reservation.id} title={`${user?.name ?? reservation.maskedName} · ${reservation.court}코트 · ${reservation.startTime}`}>
+                    const className = `reservation-chip ${selectable ? "selectable-chip" : ""} ${user?.color ?? "mint"} ${reservation.excludedAt ? "excluded" : ""} ${selectedIds.has(reservation.id) ? "selected" : ""}`;
+                    const title = `${user?.name ?? reservation.maskedName} · ${reservation.court}코트 · ${reservation.startTime}${reservation.excludedAt ? " · 집계 제외" : ""}`;
+                    const details = (
+                      <>
                         <span>{reservation.startTime.slice(0, 2)}시</span>
                         <b>{user?.name ?? reservation.maskedName}</b>
-                        <small>{reservation.court}C</small>
-                      </div>
+                        <small>{reservation.excludedAt ? "제외" : `${reservation.court}C`}</small>
+                      </>
                     );
+                    if (selectable) {
+                      return (
+                        <label className={className} key={reservation.id} title={title}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(reservation.id)}
+                            onChange={() => onToggleSelection?.(reservation.id)}
+                            aria-label={`${user?.name ?? reservation.maskedName} ${reservation.date} ${reservation.startTime} ${reservation.court}코트 선택`}
+                          />
+                          {details}
+                        </label>
+                      );
+                    }
+                    return <div className={className} key={reservation.id} title={title}>{details}</div>;
                   })}
                 </div>
               </article>

@@ -1,6 +1,7 @@
 import { getStore } from "@netlify/blobs";
 import type { Reservation, TrackedUser } from "../../src/types";
 import { DEFAULT_USERS } from "./defaults";
+import type { ReservationExclusions } from "./exclusions";
 
 interface CollectionMeta {
   lastCollectedAt: string | null;
@@ -23,6 +24,14 @@ export async function getReservations(): Promise<Reservation[]> {
 
 export async function saveReservations(reservations: Reservation[]): Promise<void> {
   await store().setJSON("reservations", reservations);
+}
+
+export async function getReservationExclusions(): Promise<ReservationExclusions> {
+  return (await store().get("reservation-exclusions", { type: "json" }) as ReservationExclusions | null) ?? {};
+}
+
+export async function saveReservationExclusions(exclusions: ReservationExclusions): Promise<void> {
+  await store().setJSON("reservation-exclusions", exclusions);
 }
 
 export async function getCollectionMeta(): Promise<CollectionMeta> {

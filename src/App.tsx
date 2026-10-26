@@ -44,7 +44,7 @@ function Dashboard() {
   useEffect(() => { void load(); }, []);
 
   const activeReservations = useMemo(
-    () => data.reservations.filter((reservation) => reservation.status === "reserved"),
+    () => data.reservations.filter((reservation) => reservation.status === "reserved" && !reservation.excludedAt),
     [data.reservations],
   );
   const periodReservations = activeReservations.filter((reservation) => reservation.date >= startDate && reservation.date <= endDate);

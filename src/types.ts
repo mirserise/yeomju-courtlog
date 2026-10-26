@@ -22,6 +22,7 @@ export interface Reservation {
   firstSeenAt: string;
   lastSeenAt: string;
   cancelledAt?: string;
+  excludedAt?: string;
 }
 
 export interface DashboardData {

@@ -8,6 +8,7 @@
 - 기간별 사용자 예약 횟수 및 금액 합계
 - 예약·취소 이력 누적
 - Netlify Identity로 보호되는 사용자 관리
+- 관리자 달력에서 예약을 선택해 집계 제외하거나 복구
 - Netlify Scheduled Functions를 통한 8시간 간격 자동 수집
 - Netlify Blobs 영구 저장
 

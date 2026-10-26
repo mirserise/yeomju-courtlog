@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, CloudDownload, LogIn, LogOut, Pencil, Plus, RefreshCcw, Trash2, UserRoundCog } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, CloudDownload, Eye, EyeOff, LogIn, LogOut, Pencil, Plus, RefreshCcw, RotateCcw, Trash2, UserRoundCog } from "lucide-react";
 import { getUser, handleAuthCallback, login, logout, onAuthChange, type User } from "@netlify/identity";
-import { createAdminUser, deleteAdminUser, fetchAdminUsers, runCollection, updateAdminUser } from "../api";
-import type { TrackedUser } from "../types";
+import { createAdminUser, deleteAdminUser, fetchAdminUsers, fetchDashboard, runCollection, updateAdminUser, updateReservationExclusions } from "../api";
+import type { Reservation, TrackedUser } from "../types";
+import { monthKey } from "../utils";
+import { CalendarView } from "./CalendarView";
 
 interface DraftUser {
   name: string;
@@ -14,6 +16,10 @@ const emptyDraft: DraftUser = { name: "", maskedName: "" };
 export function AdminPage() {
   const [identityUser, setIdentityUser] = useState<User | null>(null);
   const [users, setUsers] = useState<TrackedUser[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [month, setMonth] = useState(monthKey(new Date()));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showExcluded, setShowExcluded] = useState(false);
   const [draft, setDraft] = useState<DraftUser>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -21,12 +27,20 @@ export function AdminPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authReady, setAuthReady] = useState(false);
+  const reservationById = useMemo(
+    () => new Map(reservations.map((reservation) => [reservation.id, reservation])),
+    [reservations],
+  );
+  const selectedActiveCount = [...selectedIds].filter((id) => !reservationById.get(id)?.excludedAt).length;
+  const selectedExcludedCount = [...selectedIds].filter((id) => Boolean(reservationById.get(id)?.excludedAt)).length;
 
-  const loadUsers = useCallback(async () => {
+  const loadAdminData = useCallback(async () => {
     try {
-      setUsers(await fetchAdminUsers());
+      const [adminUsers, dashboard] = await Promise.all([fetchAdminUsers(), fetchDashboard()]);
+      setUsers(adminUsers);
+      setReservations(dashboard.reservations);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "사용자 정보를 불러오지 못했습니다.");
+      setMessage(error instanceof Error ? error.message : "관리 정보를 불러오지 못했습니다.");
     }
   }, []);
 
@@ -48,8 +62,8 @@ export function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (identityUser) void loadUsers();
-  }, [identityUser, loadUsers]);
+    if (identityUser) void loadAdminData();
+  }, [identityUser, loadAdminData]);
 
   async function submitUser(event: React.FormEvent) {
     event.preventDefault();
@@ -103,6 +117,7 @@ export function AdminPage() {
     setMessage("염주테니스장 예약을 수집하고 있습니다…");
     try {
       const result = await runCollection();
+      await loadAdminData();
       setMessage(`수집 완료: ${result.collected}건 확인, 현재 예약 ${result.active}건`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "수집 중 오류가 발생했습니다.");
@@ -133,6 +148,43 @@ export function AdminPage() {
       await logout();
       setIdentityUser(null);
       setUsers([]);
+      setReservations([]);
+      setSelectedIds(new Set());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleReservation(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function changeReservationExclusions(excluded: boolean) {
+    const ids = reservations
+      .filter((reservation) => selectedIds.has(reservation.id) && Boolean(reservation.excludedAt) !== excluded)
+      .map((reservation) => reservation.id);
+    if (ids.length === 0) return;
+    if (excluded && !window.confirm(`선택한 예약 ${ids.length}건을 금액 및 예약 건수 집계에서 제외할까요?`)) return;
+
+    setBusy(true);
+    setMessage("");
+    try {
+      setReservations(await updateReservationExclusions(ids, excluded));
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      setMessage(excluded
+        ? `${ids.length}건을 집계에서 제외했습니다. ‘제외 내역 보기’에서 복구할 수 있습니다.`
+        : `${ids.length}건을 다시 집계에 포함했습니다.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "예약 변경 중 오류가 발생했습니다.");
     } finally {
       setBusy(false);
     }
@@ -166,8 +218,8 @@ export function AdminPage() {
         <div>
           <a className="back-link" href="/"><ArrowLeft size={17} /> 대시보드로 돌아가기</a>
           <p className="eyebrow">PRIVATE ADMIN</p>
-          <h1>사용자 관리</h1>
-          <p>동일한 마스킹 이름은 항상 동일 사용자로 합산됩니다.</p>
+          <h1>관리자 설정</h1>
+          <p>사용자 연결과 예약 집계 제외 내역을 관리합니다.</p>
         </div>
         <button className="ghost-button" type="button" onClick={() => void signOut()}><LogOut size={17} /> 로그아웃</button>
       </header>
@@ -201,6 +253,49 @@ export function AdminPage() {
           </div>
         </section>
       </div>
+
+      <section className="reservation-admin-block" aria-labelledby="reservation-admin-title">
+        <div className="panel reservation-toolbar">
+          <div>
+            <p className="eyebrow">RESERVATION CONTROL</p>
+            <h2 id="reservation-admin-title">달력에서 집계 제외</h2>
+            <p>예약을 체크한 뒤 제외하면 공개 달력·예약 건수·금액 계산에서 빠집니다. 원본은 보존되어 언제든 복구할 수 있습니다.</p>
+          </div>
+          <div className="reservation-actions">
+            <button className="ghost-button" type="button" onClick={() => { setShowExcluded((current) => !current); setSelectedIds(new Set()); }}>
+              {showExcluded ? <EyeOff size={17} /> : <Eye size={17} />} {showExcluded ? "제외 내역 숨기기" : "제외 내역 보기"}
+            </button>
+            <button
+              className="secondary-button danger-action"
+              type="button"
+              disabled={busy || selectedActiveCount === 0}
+              onClick={() => void changeReservationExclusions(true)}
+            >
+              <Trash2 size={17} /> 선택 예약 제외{selectedActiveCount > 0 ? ` (${selectedActiveCount})` : ""}
+            </button>
+            {showExcluded && (
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={busy || selectedExcludedCount === 0}
+                onClick={() => void changeReservationExclusions(false)}
+              >
+                <RotateCcw size={17} /> 선택 예약 복구{selectedExcludedCount > 0 ? ` (${selectedExcludedCount})` : ""}
+              </button>
+            )}
+          </div>
+        </div>
+        <CalendarView
+          month={month}
+          onMonthChange={(nextMonth) => { setMonth(nextMonth); setSelectedIds(new Set()); }}
+          reservations={reservations}
+          users={users}
+          selectable
+          selectedIds={selectedIds}
+          onToggleSelection={toggleReservation}
+          showExcluded={showExcluded}
+        />
+      </section>
 
       <section className="panel collect-panel">
         <div><CloudDownload size={22} /><div><h2>예약 데이터 수집</h2><p>자동 수집은 매일 01:10, 09:10, 17:10에 실행됩니다.</p></div></div>

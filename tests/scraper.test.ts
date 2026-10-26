@@ -29,4 +29,11 @@ describe("reservation scraper", () => {
     const merged = mergeSnapshot(initial, [], DEFAULT_USERS, "2026-10-27T00:00:00.000Z", "2026-10-27");
     expect(merged[0].status).toBe("cancelled");
   });
+
+  it("does not overwrite an existing exclusion marker while collecting", () => {
+    const initial = mergeSnapshot([], parseReservationPage(html, 1, DEFAULT_USERS), DEFAULT_USERS, "2026-10-26T00:00:00.000Z", "2026-10-26");
+    initial[0].excludedAt = "2026-10-26T01:00:00.000Z";
+    const merged = mergeSnapshot(initial, parseReservationPage(html, 1, DEFAULT_USERS), DEFAULT_USERS, "2026-10-26T08:00:00.000Z", "2026-10-26");
+    expect(merged[0].excludedAt).toBe("2026-10-26T01:00:00.000Z");
+  });
 });

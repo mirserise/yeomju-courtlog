@@ -13,7 +13,7 @@ interface SummaryViewProps {
 
 export function SummaryView({ users, reservations, startDate, endDate, onStartDateChange, onEndDateChange }: SummaryViewProps) {
   const selected = reservations
-    .filter((reservation) => reservation.status === "reserved" && reservation.date >= startDate && reservation.date <= endDate)
+    .filter((reservation) => reservation.status === "reserved" && !reservation.excludedAt && reservation.date >= startDate && reservation.date <= endDate)
     .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
 
   return (

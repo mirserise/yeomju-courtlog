@@ -1,7 +1,7 @@
-import type { DashboardData, TrackedUser } from "./types";
+import type { DashboardData, Reservation, TrackedUser } from "./types";
 
 export async function fetchDashboard(): Promise<DashboardData> {
-  const response = await fetch("/api/dashboard");
+  const response = await fetch("/api/dashboard", { cache: "no-store" });
   if (!response.ok) throw new Error("대시보드 데이터를 불러오지 못했습니다.");
   return response.json();
 }
@@ -54,6 +54,17 @@ export async function runCollection(): Promise<{ collected: number; active: numb
   const response = await fetch("/api/admin/collect", {
     method: "POST",
     credentials: "same-origin",
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function updateReservationExclusions(ids: string[], excluded: boolean): Promise<Reservation[]> {
+  const response = await fetch("/api/admin/reservations", {
+    method: "PATCH",
+    headers: jsonHeaders,
+    credentials: "same-origin",
+    body: JSON.stringify({ ids, excluded }),
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
