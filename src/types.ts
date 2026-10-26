@@ -1,0 +1,33 @@
+export type ReservationStatus = "reserved" | "cancelled";
+
+export interface TrackedUser {
+  id: string;
+  name: string;
+  maskedName: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Reservation {
+  id: string;
+  date: string;
+  court: number;
+  startTime: "17:00" | "19:00" | "21:00";
+  endTime: "19:00" | "21:00" | "23:00";
+  maskedName: string;
+  userId: string;
+  status: ReservationStatus;
+  fee: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  cancelledAt?: string;
+}
+
+export interface DashboardData {
+  users: TrackedUser[];
+  reservations: Reservation[];
+  lastCollectedAt: string | null;
+  collectionError: string | null;
+  sourceUrl: string;
+}
