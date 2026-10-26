@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:live": "tsx scripts/test-live-scrape.ts",
+    "seed:prepare": "tsx scripts/prepare-seed.ts",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {

@@ -20,6 +20,8 @@ npm run dev
 
 Netlify Functions와 Blobs를 포함한 전체 기능은 `netlify dev`에서 실행됩니다.
 
+초기 운영 데이터를 준비할 때는 `npm run seed:prepare -- /tmp/courtlog-seed`를 실행한 뒤 Netlify CLI의 `blobs:set`으로 세 JSON 파일을 업로드할 수 있습니다.
+
 ## 배포 후 필수 설정
 
 1. Netlify에서 Identity를 활성화합니다.
