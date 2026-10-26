@@ -12,7 +12,7 @@ interface CalendarViewProps {
   selectedIds?: ReadonlySet<string>;
   onToggleSelection?: (id: string) => void;
   showExcluded?: boolean;
-  onCourtChange?: (court: number) => void;
+  onCourtChange?: (court: number | "all") => void;
 }
 
 const userColors = ["mint", "sky", "sun"];
@@ -30,7 +30,7 @@ export function CalendarView({
   showExcluded = false,
   onCourtChange,
 }: CalendarViewProps) {
-  const [selectedCourt, setSelectedCourt] = useState<number>(1);
+  const [selectedCourt, setSelectedCourt] = useState<number | "all">("all");
   const days = getCalendarDays(month);
   const [year, monthNumber] = month.split("-").map(Number);
   const userMap = new Map(users.map((user, index) => [user.id, { ...user, color: userColors[index % userColors.length] }]));
@@ -39,9 +39,11 @@ export function CalendarView({
     && reservation.date.startsWith(month)
     && (showExcluded || !reservation.excludedAt)
   ));
-  const active = monthlyReservations.filter((reservation) => reservation.court === selectedCourt);
+  const active = selectedCourt === "all"
+    ? monthlyReservations
+    : monthlyReservations.filter((reservation) => reservation.court === selectedCourt);
 
-  function selectCourt(court: number) {
+  function selectCourt(court: number | "all") {
     setSelectedCourt(court);
     onCourtChange?.(court);
   }
@@ -65,6 +67,15 @@ export function CalendarView({
       </div>
 
       <div className="court-tabs" aria-label="코트 선택">
+        <button
+          type="button"
+          className={selectedCourt === "all" ? "active" : ""}
+          aria-pressed={selectedCourt === "all"}
+          onClick={() => selectCourt("all")}
+        >
+          <span>전체</span>
+          <small>{monthlyReservations.length}건</small>
+        </button>
         {courts.map((court) => {
           const count = monthlyReservations.filter((reservation) => reservation.court === court).length;
           return (
@@ -111,7 +122,7 @@ export function CalendarView({
                       <>
                         <span>{reservation.startTime.slice(0, 2)}시</span>
                         <b>{user?.name ?? reservation.maskedName}</b>
-                        <small>{reservation.excludedAt ? "제외" : "예약"}</small>
+                        <small>{reservation.excludedAt ? "제외" : selectedCourt === "all" ? `${reservation.court}C` : "예약"}</small>
                       </>
                     );
                     if (selectable) {
