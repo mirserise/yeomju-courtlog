@@ -410,6 +410,7 @@ export function AdminPage() {
           selectedIds={selectedIds}
           onToggleSelection={toggleReservation}
           showExcluded={showExcluded}
+          onCourtChange={() => setSelectedIds(new Set())}
         />
       </section>
 

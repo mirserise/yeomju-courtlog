@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, Circle } from "lucide-react";
 import type { Reservation, TrackedUser } from "../types";
 import { getCalendarDays, parseLocalDate, shiftMonth } from "../utils";
@@ -11,9 +12,11 @@ interface CalendarViewProps {
   selectedIds?: ReadonlySet<string>;
   onToggleSelection?: (id: string) => void;
   showExcluded?: boolean;
+  onCourtChange?: (court: number) => void;
 }
 
 const userColors = ["mint", "sky", "sun"];
+const courts = [1, 2, 3, 4] as const;
 const emptySelectedIds = new Set<string>();
 
 export function CalendarView({
@@ -25,15 +28,23 @@ export function CalendarView({
   selectedIds = emptySelectedIds,
   onToggleSelection,
   showExcluded = false,
+  onCourtChange,
 }: CalendarViewProps) {
+  const [selectedCourt, setSelectedCourt] = useState<number>(1);
   const days = getCalendarDays(month);
   const [year, monthNumber] = month.split("-").map(Number);
   const userMap = new Map(users.map((user, index) => [user.id, { ...user, color: userColors[index % userColors.length] }]));
-  const active = reservations.filter((reservation) => (
+  const monthlyReservations = reservations.filter((reservation) => (
     reservation.status === "reserved"
     && reservation.date.startsWith(month)
     && (showExcluded || !reservation.excludedAt)
   ));
+  const active = monthlyReservations.filter((reservation) => reservation.court === selectedCourt);
+
+  function selectCourt(court: number) {
+    setSelectedCourt(court);
+    onCourtChange?.(court);
+  }
 
   return (
     <section className="panel calendar-panel" aria-labelledby="calendar-title">
@@ -51,6 +62,24 @@ export function CalendarView({
             <ChevronRight size={18} />
           </button>
         </div>
+      </div>
+
+      <div className="court-tabs" aria-label="코트 선택">
+        {courts.map((court) => {
+          const count = monthlyReservations.filter((reservation) => reservation.court === court).length;
+          return (
+            <button
+              type="button"
+              className={selectedCourt === court ? "active" : ""}
+              aria-pressed={selectedCourt === court}
+              onClick={() => selectCourt(court)}
+              key={court}
+            >
+              <span>실외 {court}번</span>
+              <small>{count}건</small>
+            </button>
+          );
+        })}
       </div>
 
       <div className="legend" aria-label="사용자 색상 안내">
@@ -82,7 +111,7 @@ export function CalendarView({
                       <>
                         <span>{reservation.startTime.slice(0, 2)}시</span>
                         <b>{user?.name ?? reservation.maskedName}</b>
-                        <small>{reservation.excludedAt ? "제외" : `${reservation.court}C`}</small>
+                        <small>{reservation.excludedAt ? "제외" : "예약"}</small>
                       </>
                     );
                     if (selectable) {

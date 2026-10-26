@@ -124,7 +124,14 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 28px 70px; }
 .icon-button { width: 36px; height: 36px; border: 1px solid #d8ded8; border-radius: 10px; display: inline-grid; place-items: center; background: #fff; cursor: pointer; }
 .icon-button:hover { border-color: #90a69a; background: #f4f7f2; }
 .icon-button.danger { color: #c45555; }
-.legend { display: flex; justify-content: flex-end; gap: 18px; margin: -10px 2px 15px; color: #637069; font-size: 11px; }
+.court-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 1px 4px; scrollbar-width: thin; }
+.court-tabs button { flex: 1; min-width: 126px; min-height: 52px; padding: 8px 13px; border: 1px solid #d8dfd8; border-radius: 12px; background: #fff; color: #647169; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+.court-tabs button:hover { border-color: #94aa9d; background: #f5f8f3; }
+.court-tabs button.active { border-color: var(--deep); background: var(--deep); color: #fff; box-shadow: 0 7px 18px rgba(16,45,34,.14); }
+.court-tabs button span { font-size: 12px; font-weight: 800; white-space: nowrap; }
+.court-tabs button small { padding: 4px 7px; border-radius: 999px; background: #edf2ed; color: #607068; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.court-tabs button.active small { background: var(--lime); color: var(--deep); }
+.legend { display: flex; justify-content: flex-end; gap: 18px; margin: 12px 2px 15px; color: #637069; font-size: 11px; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend-dot { width: 8px; }
 .legend-dot.mint { color: #61c28a; }
