@@ -6,8 +6,8 @@ import { ALL_COURTS } from "../netlify/lib/settings";
 
 const outputDirectory = resolve(process.argv[2] ?? "/tmp/courtlog-seed");
 const collectedAt = new Date().toISOString();
-const { rows, today } = await scrapeCurrentReservations(DEFAULT_USERS, ALL_COURTS);
-const reservations = mergeSnapshot([], rows, DEFAULT_USERS, collectedAt, today);
+const { rows } = await scrapeCurrentReservations(DEFAULT_USERS, ALL_COURTS);
+const reservations = mergeSnapshot([], rows, DEFAULT_USERS, collectedAt);
 
 await mkdir(outputDirectory, { recursive: true });
 await Promise.all([

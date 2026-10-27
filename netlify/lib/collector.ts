@@ -12,8 +12,8 @@ export async function collectReservations(): Promise<CollectionResult> {
   const collectedAt = new Date().toISOString();
   try {
     const [users, previous, settings] = await Promise.all([getUsers(), getReservations(), getCourtSettings()]);
-    const { rows, today } = await scrapeCurrentReservations(users, settings.activeCourts);
-    const merged = mergeSnapshot(previous, rows, users, collectedAt, today, settings.activeCourts);
+    const { rows } = await scrapeCurrentReservations(users, settings.activeCourts);
+    const merged = mergeSnapshot(previous, rows, users, collectedAt);
     const previousById = new Map(previous.map((reservation) => [reservation.id, reservation]));
     const added = merged.filter((reservation) => !previousById.has(reservation.id)).length;
     const changed = merged.filter((reservation) => {

@@ -1,6 +1,7 @@
 import { load } from "cheerio";
 import type { CourtNumber, Reservation, TrackedUser } from "../../src/types";
 import { calculateFee } from "./fees";
+import { preserveCollectedReservations } from "./reservations";
 
 const START_TIMES = new Set(["17:00", "19:00", "21:00"]);
 const END_TIMES = { "17:00": "19:00", "19:00": "21:00", "21:00": "23:00" } as const;
@@ -44,19 +45,15 @@ export function mergeSnapshot(
   snapshot: ScrapedReservation[],
   users: TrackedUser[],
   collectedAt: string,
-  today: string,
-  collectedCourts: CourtNumber[] = [1, 2, 3, 4],
 ): Reservation[] {
   const userByAlias = new Map(users.filter((user) => user.active).map((user) => [user.maskedName, user]));
-  const seen = new Set<string>();
-  const next = previous.map((reservation) => ({ ...reservation }));
+  const next = preserveCollectedReservations(previous);
   const byId = new Map(next.map((reservation) => [reservation.id, reservation]));
 
   for (const scraped of snapshot) {
     const user = userByAlias.get(scraped.maskedName);
     if (!user) continue;
     const id = `${scraped.date}-${scraped.court}-${scraped.startTime}-${user.id}`;
-    seen.add(id);
     const existing = byId.get(id);
     if (existing) {
       const fee = calculateFee(scraped.date, scraped.startTime);
@@ -84,15 +81,6 @@ export function mergeSnapshot(
     };
     next.push(reservation);
     byId.set(id, reservation);
-  }
-
-  for (const reservation of next) {
-    if (reservation.status !== "reserved" || reservation.date < today) continue;
-    if (!collectedCourts.includes(reservation.court)) continue;
-    if (!seen.has(reservation.id)) {
-      reservation.status = "cancelled";
-      reservation.cancelledAt = collectedAt;
-    }
   }
 
   return next.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.court - b.court);

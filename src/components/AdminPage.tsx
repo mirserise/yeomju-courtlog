@@ -443,7 +443,7 @@ export function AdminPage() {
           <div>
             <p className="eyebrow">RESERVATION CONTROL</p>
             <h2 id="reservation-admin-title">달력에서 집계 제외</h2>
-            <p>예약을 체크한 뒤 제외하면 공개 달력·예약 건수·금액 계산에서 빠집니다. 원본은 보존되어 언제든 복구할 수 있습니다.</p>
+            <p>수집된 예약은 공식 사이트에서 사라져도 계속 누적됩니다. 불필요한 예약만 체크해 제외하면 공개 달력·예약 건수·금액 계산에서 빠지며 언제든 복구할 수 있습니다.</p>
           </div>
           <div className="reservation-actions">
             <button className="ghost-button" type="button" onClick={() => { setShowExcluded((current) => !current); setSelectedIds(new Set()); }}>
@@ -484,7 +484,7 @@ export function AdminPage() {
       </section>
 
       <section className="panel collect-panel">
-        <div><CloudDownload size={22} /><div><h2>예약 데이터 수집</h2><p>자동 수집은 매일 오전 9시 10분에 실행되며 변경된 예약만 반영합니다.</p></div></div>
+        <div><CloudDownload size={22} /><div><h2>예약 데이터 수집</h2><p>매일 오전 9시 10분에 신규·변경 예약을 반영하며 기존 기록은 계속 누적합니다.</p></div></div>
         <button className="secondary-button" type="button" disabled={busy} onClick={() => void collectNow()}><RefreshCcw className={busy ? "spin" : ""} size={17} /> 지금 수집</button>
       </section>
       {message && <p className="toast" role="status">{message}</p>}

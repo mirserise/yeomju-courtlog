@@ -1,6 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { requireAdmin } from "../lib/auth";
 import { applyReservationExclusions, setReservationExclusions } from "../lib/exclusions";
+import { preserveCollectedReservations } from "../lib/reservations";
 import {
   getReservationExclusions,
   getReservations,
@@ -40,16 +41,15 @@ export default async function handler(request: Request, context: Context): Promi
     getReservations(),
     getReservationExclusions(),
   ]);
-  const reservableIds = new Set(
-    reservations.filter((reservation) => reservation.status === "reserved").map((reservation) => reservation.id),
-  );
+  const preservedReservations = preserveCollectedReservations(reservations);
+  const reservableIds = new Set(preservedReservations.map((reservation) => reservation.id));
   if (ids.some((id) => !reservableIds.has(id))) {
     return new Response("선택한 예약 중 현재 예약 내역에서 찾을 수 없는 항목이 있습니다.", { status: 404 });
   }
 
   const next = setReservationExclusions(exclusions, ids, input.excluded, new Date().toISOString());
   await saveReservationExclusions(next);
-  return Response.json(applyReservationExclusions(reservations, next));
+  return Response.json(applyReservationExclusions(preservedReservations, next));
 }
 
 export const config: Config = { path: "/api/admin/reservations" };
