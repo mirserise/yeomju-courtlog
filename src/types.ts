@@ -31,9 +31,18 @@ export interface Reservation {
   excludedAt?: string;
 }
 
+export interface CalendarNotice {
+  id: string;
+  date: string;
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DashboardData {
   users: TrackedUser[];
   reservations: Reservation[];
+  notices: CalendarNotice[];
   activeCourts: CourtNumber[];
   lastCollectedAt: string | null;
   collectionError: string | null;

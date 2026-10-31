@@ -10,6 +10,7 @@ import { addDays, isAuthCallbackHash, koreanDateTime, money, monthKey, toLocalIS
 const emptyDashboard: DashboardData = {
   users: [],
   reservations: [],
+  notices: [],
   activeCourts: [1, 2, 3, 4],
   lastCollectedAt: null,
   collectionError: null,
@@ -95,7 +96,7 @@ function Dashboard() {
         {data.collectionError && <div className="warning-banner" role="status">최근 자동 수집에 오류가 있었습니다. 마지막 정상 데이터를 표시합니다.</div>}
 
         <div id="calendar" className="anchor-offset" />
-        {loading ? <LoadingPanel /> : <CalendarView month={month} onMonthChange={setMonth} reservations={data.reservations} users={data.users} courts={data.activeCourts} />}
+        {loading ? <LoadingPanel /> : <CalendarView month={month} onMonthChange={setMonth} reservations={data.reservations} notices={data.notices} users={data.users} courts={data.activeCourts} />}
 
         <div id="statement" className="anchor-offset" />
         {loading ? <LoadingPanel /> : (

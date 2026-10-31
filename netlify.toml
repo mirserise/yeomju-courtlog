@@ -20,6 +20,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/admin/notices"
+  to = "/.netlify/functions/admin-notices"
+  status = 200
+
+[[redirects]]
   from = "/api/admin/settings"
   to = "/.netlify/functions/admin-settings"
   status = 200

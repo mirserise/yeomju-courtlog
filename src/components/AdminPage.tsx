@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, CloudDownload, Eye, EyeOff, KeyRound, LogIn, LogOut, Mail, Pencil, Plus, RefreshCcw, RotateCcw, Save, SlidersHorizontal, Trash2, UserRoundCog } from "lucide-react";
+import { ArrowLeft, Check, CloudDownload, Eye, EyeOff, KeyRound, LogIn, LogOut, Mail, Megaphone, Pencil, Plus, RefreshCcw, RotateCcw, Save, SlidersHorizontal, Trash2, UserRoundCog } from "lucide-react";
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser, type CallbackResult, type User } from "@netlify/identity";
-import { createAdminUser, deleteAdminUser, fetchAdminUsers, fetchDashboard, runCollection, updateAdminUser, updateCourtSettings, updateReservationExclusions } from "../api";
-import type { CourtNumber, Reservation, TrackedUser } from "../types";
-import { monthKey } from "../utils";
+import { createAdminUser, createCalendarNotice, deleteAdminUser, deleteCalendarNotice, fetchAdminUsers, fetchDashboard, runCollection, updateAdminUser, updateCourtSettings, updateReservationExclusions } from "../api";
+import type { CalendarNotice, CourtNumber, Reservation, TrackedUser } from "../types";
+import { monthKey, toLocalISO } from "../utils";
 import { CalendarView } from "./CalendarView";
 
 interface DraftUser {
@@ -24,9 +24,12 @@ export function AdminPage() {
   const [identityUser, setIdentityUser] = useState<User | null>(null);
   const [users, setUsers] = useState<TrackedUser[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [notices, setNotices] = useState<CalendarNotice[]>([]);
   const [activeCourts, setActiveCourts] = useState<CourtNumber[]>([1, 2, 3, 4]);
   const [courtDraft, setCourtDraft] = useState<CourtNumber[]>([1, 2, 3, 4]);
   const [month, setMonth] = useState(monthKey(new Date()));
+  const [noticeDate, setNoticeDate] = useState(toLocalISO(new Date()));
+  const [noticeMessage, setNoticeMessage] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showExcluded, setShowExcluded] = useState(false);
   const [draft, setDraft] = useState<DraftUser>(emptyDraft);
@@ -52,6 +55,7 @@ export function AdminPage() {
       const [adminUsers, dashboard] = await Promise.all([fetchAdminUsers(), fetchDashboard()]);
       setUsers(adminUsers);
       setReservations(dashboard.reservations);
+      setNotices(dashboard.notices);
       setActiveCourts(dashboard.activeCourts);
       setCourtDraft(dashboard.activeCourts);
     } catch (error) {
@@ -303,6 +307,37 @@ export function AdminPage() {
     }
   }
 
+  async function submitNotice(event: React.FormEvent) {
+    event.preventDefault();
+    if (!noticeMessage.trim()) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      setNotices(await createCalendarNotice({ date: noticeDate, message: noticeMessage }));
+      setMonth(noticeDate.slice(0, 7));
+      setNoticeMessage("");
+      setMessage(`${noticeDate} 공지를 등록했습니다.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "공지를 등록하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeNotice(notice: CalendarNotice) {
+    if (!window.confirm(`${notice.date}의 ‘${notice.message}’ 공지를 삭제할까요?`)) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      setNotices(await deleteCalendarNotice(notice.id));
+      setMessage("공지를 삭제했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "공지를 삭제하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (authMode === "recovery" || authMode === "invite") {
     return (
       <main className="admin-shell login-shell">
@@ -366,7 +401,7 @@ export function AdminPage() {
           <a className="back-link" href="/"><ArrowLeft size={17} /> 대시보드로 돌아가기</a>
           <p className="eyebrow">PRIVATE ADMIN</p>
           <h1>관리자 설정</h1>
-          <p>사용자 연결과 예약 집계 제외 내역을 관리합니다.</p>
+          <p>사용자 연결, 달력 공지와 예약 집계 제외 내역을 관리합니다.</p>
         </div>
         <button className="ghost-button" type="button" onClick={() => void signOut()}><LogOut size={17} /> 로그아웃</button>
       </header>
@@ -469,10 +504,36 @@ export function AdminPage() {
             )}
           </div>
         </div>
+        <section className="panel notice-admin-panel" aria-labelledby="notice-admin-title">
+          <div className="notice-admin-copy">
+            <span className="notice-admin-icon"><Megaphone size={20} /></span>
+            <div>
+              <p className="eyebrow">CALENDAR NOTICE</p>
+              <h3 id="notice-admin-title">일자별 공지사항</h3>
+              <p>날짜와 내용을 등록하면 공개 달력의 전체 탭에 보라색 공지로 표시됩니다.</p>
+            </div>
+          </div>
+          <form className="notice-form" onSubmit={submitNotice}>
+            <label>공지 일자<input type="date" required value={noticeDate} onChange={(event) => setNoticeDate(event.target.value)} /></label>
+            <label>공지 내용<input type="text" required maxLength={80} value={noticeMessage} onChange={(event) => setNoticeMessage(event.target.value)} placeholder="예: 시장배 단체전" /></label>
+            <button className="primary-button" type="submit" disabled={busy || !noticeMessage.trim()}><Plus size={17} /> 공지 등록</button>
+          </form>
+          <div className="notice-admin-list" aria-label="등록된 공지 목록">
+            {notices.length === 0 ? <p className="notice-empty">등록된 공지가 없습니다.</p> : notices.map((notice) => (
+              <article key={notice.id}>
+                <time dateTime={notice.date}>{notice.date.replaceAll("-", ".")}</time>
+                <span>[공지]</span>
+                <b>{notice.message}</b>
+                <button className="icon-button danger" type="button" disabled={busy} aria-label={`${notice.date} 공지 삭제`} onClick={() => void removeNotice(notice)}><Trash2 size={15} /></button>
+              </article>
+            ))}
+          </div>
+        </section>
         <CalendarView
           month={month}
           onMonthChange={(nextMonth) => { setMonth(nextMonth); setSelectedIds(new Set()); }}
           reservations={reservations}
+          notices={notices}
           users={users}
           selectable
           selectedIds={selectedIds}

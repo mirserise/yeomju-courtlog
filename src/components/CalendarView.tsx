@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Circle } from "lucide-react";
-import type { CourtNumber, Reservation, TrackedUser } from "../types";
+import { ChevronLeft, ChevronRight, Circle, Megaphone } from "lucide-react";
+import type { CalendarNotice, CourtNumber, Reservation, TrackedUser } from "../types";
 import { getCalendarDays, parseLocalDate, shiftMonth } from "../utils";
 
 interface CalendarViewProps {
   month: string;
   onMonthChange: (month: string) => void;
   reservations: Reservation[];
+  notices?: CalendarNotice[];
   users: TrackedUser[];
   selectable?: boolean;
   selectedIds?: ReadonlySet<string>;
@@ -24,6 +25,7 @@ export function CalendarView({
   month,
   onMonthChange,
   reservations,
+  notices = [],
   users,
   selectable = false,
   selectedIds = emptySelectedIds,
@@ -103,6 +105,7 @@ export function CalendarView({
       </div>
 
       <div className="legend" aria-label="사용자 색상 안내">
+        <span><Megaphone className="legend-notice" />공지</span>
         {users.filter((user) => user.active).map((user, index) => (
           <span key={user.id}><Circle className={`legend-dot ${userColors[index % userColors.length]}`} fill="currentColor" />{user.name}</span>
         ))}
@@ -118,11 +121,20 @@ export function CalendarView({
             const dayReservations = active
               .filter((reservation) => reservation.date === date)
               .sort((a, b) => a.startTime.localeCompare(b.startTime) || a.court - b.court);
+            const dayNotices = selectedCourt === "all"
+              ? notices.filter((notice) => notice.date === date)
+              : [];
             const weekday = parseLocalDate(date).getDay();
             return (
               <article className={`calendar-cell ${weekday === 0 ? 'sunday' : ''} ${weekday === 6 ? 'saturday' : ''}`} key={date}>
                 <time dateTime={date}>{Number(date.slice(-2))}</time>
                 <div className="day-reservations">
+                  {dayNotices.map((notice) => (
+                    <div className="notice-chip" key={notice.id} title={`[공지] ${notice.message}`}>
+                      <span>[공지]</span>
+                      <b>{notice.message}</b>
+                    </div>
+                  ))}
                   {dayReservations.map((reservation) => {
                     const user = userMap.get(reservation.userId);
                     const className = `reservation-chip ${selectable ? "selectable-chip" : ""} ${user?.color ?? "mint"} ${reservation.excludedAt ? "excluded" : ""} ${selectedIds.has(reservation.id) ? "selected" : ""}`;

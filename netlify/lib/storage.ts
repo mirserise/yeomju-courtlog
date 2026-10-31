@@ -1,5 +1,5 @@
 import { getStore } from "@netlify/blobs";
-import type { CourtSettings, Reservation, TrackedUser } from "../../src/types";
+import type { CalendarNotice, CourtSettings, Reservation, TrackedUser } from "../../src/types";
 import { DEFAULT_USERS } from "./defaults";
 import type { ReservationExclusions } from "./exclusions";
 import { DEFAULT_COURT_SETTINGS, normalizeActiveCourts } from "./settings";
@@ -45,6 +45,24 @@ export async function getCourtSettings(): Promise<CourtSettings> {
 
 export async function saveCourtSettings(settings: CourtSettings): Promise<void> {
   await store().setJSON("court-settings", settings);
+}
+
+export async function getNotices(): Promise<CalendarNotice[]> {
+  const { blobs } = await store().list({ prefix: "notices/" });
+  const notices = await Promise.all(
+    blobs.map((blob) => store().get(blob.key, { type: "json" }) as Promise<CalendarNotice | null>),
+  );
+  return notices
+    .filter((notice): notice is CalendarNotice => Boolean(notice))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+}
+
+export async function saveNotice(notice: CalendarNotice): Promise<void> {
+  await store().setJSON(`notices/${notice.id}`, notice);
+}
+
+export async function deleteNotice(id: string): Promise<void> {
+  await store().delete(`notices/${id}`);
 }
 
 export async function getCollectionMeta(): Promise<CollectionMeta> {

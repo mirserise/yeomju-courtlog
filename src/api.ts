@@ -1,4 +1,4 @@
-import type { CourtNumber, CourtSettings, DashboardData, Reservation, TrackedUser } from "./types";
+import type { CalendarNotice, CourtNumber, CourtSettings, DashboardData, Reservation, TrackedUser } from "./types";
 
 export async function fetchDashboard(): Promise<DashboardData> {
   const response = await fetch("/api/dashboard", { cache: "no-store" });
@@ -76,6 +76,28 @@ export async function updateReservationExclusions(ids: string[], excluded: boole
     headers: jsonHeaders,
     credentials: "same-origin",
     body: JSON.stringify({ ids, excluded }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function createCalendarNotice(input: Pick<CalendarNotice, "date" | "message">): Promise<CalendarNotice[]> {
+  const response = await fetch("/api/admin/notices", {
+    method: "POST",
+    headers: jsonHeaders,
+    credentials: "same-origin",
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function deleteCalendarNotice(id: string): Promise<CalendarNotice[]> {
+  const response = await fetch("/api/admin/notices", {
+    method: "DELETE",
+    headers: jsonHeaders,
+    credentials: "same-origin",
+    body: JSON.stringify({ id }),
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
